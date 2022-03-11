@@ -9745,7 +9745,7 @@ function parseHTML (html, options) {
 
   /**
    * @description 处理开始标签的 标签类型，标签上的 attr
-   * @returns {Object}
+   * @returns {Object} match - 开始标签处理以及标签上的attrs
    */
   function parseStartTag () {
     // <div class="a" id="b">{{ world }}</div> => ['<div','div',index:0,input:'<div class="a" id="b">{{ world }}</div>']
@@ -9805,25 +9805,27 @@ function parseHTML (html, options) {
     // 对模板编译的 attrs 再处理一次
     for (var i = 0; i < l; i++) {
       var args = match.attrs[i];
+      // 取 value args 值的格式  ["class="a"", "class", "=", "a", undefined, undefined, index: 0, input: "class="a" id="b"></div>", groups: undefined]
       var value = args[3] || args[4] || args[5] || '';
+      // 定义 shouldDecodeNewlines 对a标签的 href属性值中的换行符或制表符做兼容处理。
       var shouldDecodeNewlines = tagName === 'a' && args[1] === 'href'
         ? options.shouldDecodeNewlinesForHref
         : options.shouldDecodeNewlines;
       attrs[i] = {
-        name: args[1],
-        value: decodeAttr(value, shouldDecodeNewlines)
+        name: args[1], // 标签的名称
+        value: decodeAttr(value, shouldDecodeNewlines) // 标签属性的属性值，如class对应的a
       };
       if (process.env.NODE_ENV !== 'production' && options.outputSourceRange) {
         attrs[i].start = args.start + args[0].match(/^\s*/).length;
         attrs[i].end = args.end;
       }
     }
-    // 不是自闭和标签入栈处理，并记住 此时栈顶的 tagName
+    // 不是自闭合标签则标签入栈处理，并记住 此时栈顶的 tagName
     if (!unary) {
       stack.push({ tag: tagName, lowerCasedTag: tagName.toLowerCase(), attrs: attrs, start: match.start, end: match.end });
       lastTag = tagName;
     }
-    // 调用 start 函数
+    // 调用 start 函数 生成AST节点
     if (options.start) {
       options.start(tagName, attrs, unary, match.start, match.end);
     }
@@ -9840,7 +9842,7 @@ function parseHTML (html, options) {
     if (end == null) { end = index; }
 
     // Find the closest opened tag of the same type
-    // 如果 tagName 存在 则冲栈顶开始遍历 找出第一个相同的 tagName 并记录位置 否则为 0
+    // 如果 tagName 存在 则从栈顶开始遍历 找出第一个相同的 tagName 并记录位置 否则为 0
     if (tagName) {
       lowerCasedTagName = tagName.toLowerCase();
       for (pos = stack.length - 1; pos >= 0; pos--) {
@@ -9855,7 +9857,8 @@ function parseHTML (html, options) {
 
     if (pos >= 0) {
       // Close all the open elements, up the stack
-      // 正常情况下 匹配 结束标签时，应该在栈顶就能找到 对应的 开始标签的 tagName 所以不会进入循环
+      // 正常情况下 匹配 结束标签时，应该在栈顶就能找到对应的开始标签的 tagName 那么 i >= pos 就不会成立（pos在上一个循环中做了 pos-- 的操作） 所以不会进入循环
+      // 进入for循环标识着在该标签前面有多少只有开始标签，没有结束标签的错误 html 标签
       for (var i = stack.length - 1; i >= pos; i--) {
         // 进入循环则表示 解析是存在没有闭合标签 发出警告
         if (process.env.NODE_ENV !== 'production' &&
@@ -10092,6 +10095,7 @@ function parse (
     shouldDecodeNewlinesForHref: options.shouldDecodeNewlinesForHref,
     shouldKeepComment: options.comments,
     outputSourceRange: options.outputSourceRange,
+    // 当解析到开始标签时，调用该函数
     start: function start (tag, attrs, unary, start$1, end) {
       // check namespace.
       // inherit parent ns if there is one
@@ -10181,7 +10185,7 @@ function parse (
         closeElement(element);
       }
     },
-
+    // 当解析到结束标签时，调用该函数
     end: function end (tag, start, end$1) {
       var element = stack[stack.length - 1];
       // pop stack
@@ -10192,8 +10196,9 @@ function parse (
       }
       closeElement(element);
     },
-
+    // 当解析到文本时，调用该函数
     chars: function chars (text, start, end) {
+      // 解析到文字内容，但是又没有节点产生，那么就是只有文本非正常情况
       if (!currentParent) {
         if (process.env.NODE_ENV !== 'production') {
           if (text === template) {
@@ -10212,13 +10217,16 @@ function parse (
       }
       // IE textarea placeholder bug
       /* istanbul ignore if */
+      // 特殊情况处理
       if (isIE &&
         currentParent.tag === 'textarea' &&
         currentParent.attrsMap.placeholder === text
       ) {
         return
       }
+
       var children = currentParent.children;
+      // 格式化处理并获取 text
       if (inPre || text.trim()) {
         text = isTextTag(currentParent) ? text : decodeHTMLCached(text);
       } else if (!children.length) {
@@ -10264,7 +10272,7 @@ function parse (
         }
       }
     },
-    // 注释节点
+    // 当解析到注释时，调用该函数
     comment: function comment (text, start, end) {
       // adding anything as a sibling to the root node is forbidden
       // comments should still be allowed, but ignored
