@@ -4600,7 +4600,6 @@ var Watcher = function Watcher (
   options,
   isRenderWatcher
 ) {
-  debugger
   this.vm = vm;
   // 是不是 render watcher 类型 其他的还有 computed watcher 和 普通注册的 watcher
   if (isRenderWatcher) {
@@ -9373,7 +9372,6 @@ var buildRegex = cached(function (delimiters) {
  * @description 解析 textAST 的主要逻辑 以  前面{{ world }}后面  分析
  * @param {string} text 待解析的文本内容 
  * @param {Array<string>} delimiters 动态值的符号 默认 ["{{", "}}"]
- * @returns 
  */
 
 function parseText (
@@ -9382,7 +9380,7 @@ function parseText (
 ) {
   // 获取 tagRE 的正则表达式
   var tagRE = delimiters ? buildRegex(delimiters) : defaultTagRE;
-  // 当文本的内容没有值的插入直接 return
+  // 当文本的内容没有匹配到动态值匹配符的插入直接 return
   if (!tagRE.test(text)) {
     return
   }
@@ -9391,6 +9389,15 @@ function parseText (
   var lastIndex = tagRE.lastIndex = 0;
   var match, index, tokenValue;
   // 正则搜索文本中值插入的位置
+  // tagRE.exec('前面{{ world }}后面') === 
+  // [
+  //   '{{ world }}',
+  //   ' world ',
+  //   index: 2,
+  //   input: '前面{{ world }}后面',
+  //   groups: undefined
+  // ]
+  // tagRE.exec('前面 world 后面') === null
   while ((match = tagRE.exec(text))) {
     index = match.index;
     // push text token
@@ -9400,7 +9407,7 @@ function parseText (
       tokens.push(JSON.stringify(tokenValue));
     }
     // tag token
-    // 将 {{  }} 中的变量取出 转成 "_s(" + exp + ")"
+    // 将 {{  }} 中的变量取出交给 parseFilters 处理，这里可能有 filter
     var exp = parseFilters(match[1].trim());
     // 此时  tokens = ['前面', '_s(world)']
     tokens.push(("_s(" + exp + ")"));
@@ -11044,6 +11051,7 @@ function markStatic$1 (node) {
     for (var i = 0, l = node.children.length; i < l; i++) {
       var child = node.children[i];
       markStatic$1(child);
+      // 判断是自上向下的，所以只要子节点有一个不是静态节点就要将根节点标记为非静态节点
       if (!child.static) {
         node.static = false;
       }
@@ -11516,7 +11524,12 @@ function genFor (
       "return " + ((altGen || genElement)(el, state)) +
     '})'
 }
-
+/**
+ * @description 将模板字符串上的attrs信息转出对象格式的字符串
+ * @param {Object} el AST 节点
+ * @param {Object} state 
+ * @returns {String}
+ */
 function genData$2 (el, state) {
   var data = '{';
 
