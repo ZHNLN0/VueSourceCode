@@ -766,8 +766,17 @@ function popTarget () {
   Dep.target = targetStack[targetStack.length - 1];
 }
 
-/*  */
-
+/**
+ * @description VNode 类
+ * @param {String} tag - 标签名称 
+ * @param {VNodeData} data - 节点的attrs等描述信息
+ * @param {Array<VNode>} children - 子VNode节点
+ * @param {string} text - 当前节点的文本
+ * @param {Node} elm - 对应的真实节点
+ * @param {Component} context - 当前组件节点对应的Vue实例
+ * @param {VNodeComponentOptions} componentOptions 
+ * @param {Function} asyncFactory 
+ */
 var VNode = function VNode (
   tag,
   data,
@@ -778,26 +787,26 @@ var VNode = function VNode (
   componentOptions,
   asyncFactory
 ) {
-  this.tag = tag;
-  this.data = data;
-  this.children = children;
-  this.text = text;
-  this.elm = elm;
+  this.tag = tag;                             // 当前节点的标签名
+  this.data = data;                           // 当前节点对应的对象，包含了具体的一些数据信息，是一个VNodeData类型，可以参考VNodeData类型中的数据信息
+  this.children = children;                   // 前节点的子节点，是一个数组
+  this.text = text;                           // 当前节点的文本
+  this.elm = elm;                             // 当前虚拟节点对应的真实dom节点
   this.ns = undefined;
-  this.context = context;
+  this.context = context;                     // 当前组件节点对应的Vue实例
   this.fnContext = undefined;
-  this.fnOptions = undefined;
+  this.fnOptions = undefined;                 // 函数式组件对应的Vue实例
   this.fnScopeId = undefined;
-  this.key = data && data.key;
-  this.componentOptions = componentOptions;
-  this.componentInstance = undefined;
-  this.parent = undefined;
-  this.raw = false;
-  this.isStatic = false;
-  this.isRootInsert = true;
-  this.isComment = false;
-  this.isCloned = false;
-  this.isOnce = false;
+  this.key = data && data.key;                // 节点的key属性，被当作节点的标志，用以优化
+  this.componentOptions = componentOptions;   // 组件的option选项
+  this.componentInstance = undefined;         // 当前节点对应的组件的实例
+  this.parent = undefined;                    // 当前节点的父节点
+  this.raw = false;                           // 简而言之就是是否为原生HTML或只是普通文本，innerHTML的时候为true，textContent的时候为false
+  this.isStatic = false;                      // 静态节点标志
+  this.isRootInsert = true;                   // 是否作为跟节点插入
+  this.isComment = false;                     // 是否为注释节点
+  this.isCloned = false;                      // 是否为克隆节点
+  this.isOnce = false;                        // 是否有v-once指令
   this.asyncFactory = asyncFactory;
   this.asyncMeta = undefined;
   this.isAsyncPlaceholder = false;
@@ -813,7 +822,7 @@ prototypeAccessors.child.get = function () {
 
 Object.defineProperties( VNode.prototype, prototypeAccessors );
 
-// 创建 空的 VNode 实例，实例十个注释节点类型
+// 创建 空的 VNode 实例，实例是注释节点类型
 var createEmptyVNode = function (text) {
   if ( text === void 0 ) text = '';
 
@@ -822,7 +831,7 @@ var createEmptyVNode = function (text) {
   node.isComment = true;
   return node
 };
-
+// 创建文本节点
 function createTextVNode (val) {
   return new VNode(undefined, undefined, undefined, String(val))
 }
@@ -831,6 +840,7 @@ function createTextVNode (val) {
 // used for static nodes and slot nodes because they may be reused across
 // multiple renders, cloning them avoids errors when DOM manipulations rely
 // on their elm reference.
+// 创建clone节点
 function cloneVNode (vnode) {
   var cloned = new VNode(
     vnode.tag,
@@ -3667,6 +3677,7 @@ var currentRenderingInstance = null;
 
 function renderMixin (Vue) {
   // install runtime convenience helpers
+  // 在 Vue 原型链上挂在 render 函数所需要的方法
   installRenderHelpers(Vue.prototype);
 
   Vue.prototype.$nextTick = function (fn) {
@@ -6727,6 +6738,8 @@ function createPatchFunction (backend) {
   }
 
   return function patch (oldVnode, vnode, hydrating, removeOnly) {
+    debugger
+    // 销毁逻辑
     if (isUndef(vnode)) {
       if (isDef(oldVnode)) { invokeDestroyHook(oldVnode); }
       return
@@ -6734,14 +6747,15 @@ function createPatchFunction (backend) {
 
     var isInitialPatch = false;
     var insertedVnodeQueue = [];
-
-    if (isUndef(oldVnode)) {
+  
+    if (isUndef(oldVnode)) { // 组件创建的逻辑
       // empty mount (likely as component), create new root element
       isInitialPatch = true;
       createElm(vnode, insertedVnodeQueue);
     } else {
+      // 判断 oldVnode 是否是真实节点，这在一开始 new Vue 的时候会发生，传入的是所要挂载的真实 DOM 节点
       var isRealElement = isDef(oldVnode.nodeType);
-      if (!isRealElement && sameVnode(oldVnode, vnode)) {
+      if (!isRealElement && sameVnode(oldVnode, vnode)) { // 节点更新的操作
         // patch existing root node
         patchVnode(oldVnode, vnode, insertedVnodeQueue, null, null, removeOnly);
       } else {
@@ -6749,6 +6763,7 @@ function createPatchFunction (backend) {
           // mounting to a real element
           // check if this is server-rendered content and if we can perform
           // a successful hydration.
+          // SSR 的逻辑
           if (oldVnode.nodeType === 1 && oldVnode.hasAttribute(SSR_ATTR)) {
             oldVnode.removeAttribute(SSR_ATTR);
             hydrating = true;
