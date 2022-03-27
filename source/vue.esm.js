@@ -6456,7 +6456,14 @@ function createPatchFunction (backend) {
       removeNode(vnode.elm);
     }
   }
-
+  /**
+   * @deprecated 子节点的更新操作，注：子节点的更新操作中 如果还存在子节点，那么会通过 patchVnode 回调 updateChildren 函数
+   * @param {Element} parentElm 
+   * @param {Array<VNode>} oldCh 
+   * @param {Array<VNode>} newCh 
+   * @param {Array} insertedVnodeQueue 
+   * @param {Boolean} removeOnly 
+   */
   function updateChildren (parentElm, oldCh, newCh, insertedVnodeQueue, removeOnly) {
     var oldStartIdx = 0;                              // oldChildren开始索引
     var newStartIdx = 0;                              // oldChildren结束索引
@@ -6506,30 +6513,42 @@ function createPatchFunction (backend) {
         newStartVnode = newCh[++newStartIdx];
       } else {
         // 最后四种情况都试完如果还不同，那就按照循环的方式来查找节点。
+        // 将旧的节点的 key 和索引 index 构成映射 { [vnode.key]: index } 的数据结构
         if (isUndef(oldKeyToIdx)) { oldKeyToIdx = createKeyToOldIdx(oldCh, oldStartIdx, oldEndIdx); }
+        // 找出对应具有相同key的新节点在旧节点的位置
         idxInOld = isDef(newStartVnode.key)
           ? oldKeyToIdx[newStartVnode.key]
           : findIdxInOld(newStartVnode, oldCh, oldStartIdx, oldEndIdx);
         if (isUndef(idxInOld)) { // New element
+          // 没找到 则旧节点中其实没有这个新节点 就创建这个新节点
           createElm(newStartVnode, insertedVnodeQueue, parentElm, oldStartVnode.elm, false, newCh, newStartIdx);
         } else {
+          // 找到了旧节点原先就存在这个key的节点
           vnodeToMove = oldCh[idxInOld];
+          // 如果 找的节点 和新的对应key 的节点是 sameVnode 就做移动的操作
           if (sameVnode(vnodeToMove, newStartVnode)) {
             patchVnode(vnodeToMove, newStartVnode, insertedVnodeQueue, newCh, newStartIdx);
             oldCh[idxInOld] = undefined;
             canMove && nodeOps.insertBefore(parentElm, vnodeToMove.elm, oldStartVnode.elm);
           } else {
+            // 否则在相应的位置创建一个新的节点
             // same key but different element. treat as new element
             createElm(newStartVnode, insertedVnodeQueue, parentElm, oldStartVnode.elm, false, newCh, newStartIdx);
           }
         }
+        // 新的节点列表 向后移动，表示当前的处理好了
         newStartVnode = newCh[++newStartIdx];
       }
     }
+    // oldStartIdx > oldEndIdx 表示 oldChildren比newChildren先循环完毕，
+    // 那么newChildren里面剩余的节点都是需要新增的节点，把[newStartIdx, newEndIdx]之间的所有节点都插入到DOM中
     if (oldStartIdx > oldEndIdx) {
       refElm = isUndef(newCh[newEndIdx + 1]) ? null : newCh[newEndIdx + 1].elm;
       addVnodes(parentElm, refElm, newCh, newStartIdx, newEndIdx, insertedVnodeQueue);
     } else if (newStartIdx > newEndIdx) {
+      // 如果在循环中，newStartIdx大于newEndIdx了，
+      // 那就表示newChildren比oldChildren先循环完毕，
+      // 那么oldChildren里面剩余的节点都是需要删除的节点，把[oldStartIdx, oldEndIdx]之间的所有节点都删除
       removeVnodes(oldCh, oldStartIdx, oldEndIdx);
     }
   }
